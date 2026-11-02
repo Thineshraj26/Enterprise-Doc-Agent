@@ -1,0 +1,16 @@
+services:
+  vectordb:
+    image: pgvector/pgvector:pg17
+    container_name: enterprise_doc_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: adminpassword
+      POSTGRES_DB: enterprise_agent
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enterprise Doc Intelligence</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+  <!-- Top Navbar -->
+  <header class="border-b border-slate-800 bg-slate-900/60 backdrop-blur px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/30">
+        E
+      </div>
+      <div>
+        <h1 class="text-base font-semibold leading-none">Enterprise Doc Intelligence</h1>
+        <span class="text-xs text-slate-400">Deterministic QA • RBAC Data Layer • Immutable Audit</span>
+      </div>
+    </div>
+
+    <!-- Active User & Role Context Switcher -->
+    <div class="flex items-center gap-4 bg-slate-800/80 border border-slate-700/60 rounded-xl px-3 py-1.5 text-xs">
+      <div class="flex items-center gap-2">
+        <span class="text-slate-400">User ID:</span>
+        <input id="userIdInput" type="text" value="usr_finance_42" class="bg-slate-900 text-slate-200 border border-slate-700 rounded px-2 py-0.5 focus:outline-none focus:border-indigo-500 font-mono">
+      </div>
+      <div class="h-4 w-px bg-slate-700"></div>
+      <div class="flex items-center gap-2">
+        <span class="text-slate-400">Active Role:</span>
+        <select id="userRoleSelect" class="bg-slate-900 text-indigo-400 font-medium border border-slate-700 rounded px-2 py-0.5 focus:outline-none focus:border-indigo-500">
+          <option value="finance">finance</option>
+          <option value="engineering">engineering</option>
+          <option value="cfo">cfo</option>
+          <option value="auditor">auditor</option>
+          <option value="admin">admin</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Layout Grid -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- Left Column: Document Upload & Repository (4 cols) -->
+    <div class="lg:col-span-4 flex flex-col gap-6">
+      
+      <!-- Upload Panel -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+        <h2 class="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+          <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+          Ingest Enterprise Document
+        </h2>
+
+        <form id="uploadForm" class="space-y-3">
+          <div class="border-2 border-dashed border-slate-800 hover:border-indigo-500/50 rounded-xl p-4 text-center cursor-pointer transition bg-slate-950/40 relative">
+            <input type="file" id="fileInput" class="absolute inset-0 opacity-0 cursor-pointer" required accept=".pdf,.docx,.txt,.md">
+            <p id="fileLabel" class="text-xs text-slate-400">Click to select PDF, DOCX, or TXT</p>
+          </div>
+
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">Allowed Roles (comma-separated ACLs)</label>
+            <input type="text" id="allowedRolesInput" value="finance, cfo" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-mono" required>
+          </div>
+
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">Classification Level</label>
+            <select id="classificationSelect" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+              <option value="internal">internal</option>
+              <option value="restricted">restricted</option>
+              <option value="confidential">confidential</option>
+            </select>
+          </div>
+
+          <button type="submit" id="uploadBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs py-2 rounded-lg transition shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2">
+            <span>Embed & Index Document</span>
+          </button>
+        </form>
+        <div id="uploadFeedback" class="mt-2 text-xs"></div>
+      </div>
+
+      <!-- Authorized Documents List -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex-1 flex flex-col shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-slate-200">Authorized Documents</h2>
+          <button id="refreshDocsBtn" class="text-xs text-indigo-400 hover:underline">Refresh</button>
+        </div>
+        <div id="docsList" class="flex-1 overflow-y-auto max-h-64 space-y-2 text-xs text-slate-400">
+          Loading documents...
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Interactive QA & Ground Truth Citations (8 cols) -->
+    <div class="lg:col-span-8 flex flex-col gap-6">
+
+      <!-- Query Engine -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex-1 flex flex-col shadow-sm">
+        <h2 class="text-sm font-semibold text-slate-200 mb-2">Deterministic Document Query</h2>
+        <p class="text-xs text-slate-400 mb-4">Questions are evaluated strictly against chunks authorized for your current role header.</p>
+
+        <!-- Chat / Response Display Area -->
+        <div id="chatHistory" class="flex-1 overflow-y-auto space-y-4 mb-4 min-h-[350px] max-h-[480px] p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
+          <div class="text-center text-xs text-slate-500 py-12">
+            Enter a prompt below. Responses will include bracket citations and verified source attributions.
+          </div>
+        </div>
+
+        <!-- Query Form -->
+        <form id="queryForm" class="flex gap-2">
+          <input type="text" id="questionInput" placeholder="Ask about revenue, EBITDA, Kafka throughput, or uploaded policies..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" required>
+          <button type="submit" id="sendBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs px-5 py-2 rounded-xl transition shadow-md shadow-indigo-600/20">
+            Query
+          </button>
+        </form>
+      </div>
+
+      <!-- Auditor Accordion (Visible for Auditor / Admin) -->
+      <div id="auditSection" class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            Immutable Audit Trail Log (Latest 5 Records)
+          </h2>
+          <button id="refreshAuditBtn" class="text-xs text-indigo-400 hover:underline">Reload Logs</button>
+        </div>
+        <div id="auditLogsContainer" class="overflow-x-auto text-xs font-mono text-slate-400">
+          Select "auditor" or "admin" role above to view.
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    const userIdInput = document.getElementById('userIdInput');
+    const userRoleSelect = document.getElementById('userRoleSelect');
+    const fileInput = document.getElementById('fileInput');
+    const fileLabel = document.getElementById('fileLabel');
+    const uploadForm = document.getElementById('uploadForm');
+    const uploadFeedback = document.getElementById('uploadFeedback');
+    const docsList = document.getElementById('docsList');
+    const queryForm = document.getElementById('queryForm');
+    const questionInput = document.getElementById('questionInput');
+    const chatHistory = document.getElementById('chatHistory');
+    const auditLogsContainer = document.getElementById('auditLogsContainer');
+
+    // Display selected filename
+    fileInput.addEventListener('change', () => {
+      fileLabel.innerText = fileInput.files[0] ? fileInput.files[0].name : "Click to select PDF, DOCX, or TXT";
+    });
+
+    // Handle Upload
+    uploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      uploadFeedback.innerHTML = '<span class="text-amber-400">Uploading & embedding chunks...</span>';
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('roles', document.getElementById('allowedRolesInput').value);
+      formData.append('classification', document.getElementById('classificationSelect').value);
+
+      try {
+        const res = await fetch('/api/v1/upload', {
+          method: 'POST',
+          headers: { 'X-User-Role': userRoleSelect.value },
+          body: formData
+        });
+        const data = await res.json();
+        if (res.ok) {
+          uploadFeedback.innerHTML = `<span class="text-emerald-400">Indexed ${data.chunks_count || 0} chunks (Doc ID: ${data.doc_id.slice(0,8)}...)</span>`;
+          uploadForm.reset();
+          fileLabel.innerText = "Click to select PDF, DOCX, or TXT";
+          loadDocuments();
+        } else {
+          uploadFeedback.innerHTML = `<span class="text-rose-400">${data.detail || 'Upload failed'}</span>`;
+        }
+      } catch (err) {
+        uploadFeedback.innerHTML = `<span class="text-rose-400">${err.message}</span>`;
+      }
+    });
+
+    // Load Authorized Documents
+    async function loadDocuments() {
+      try {
+        const res = await fetch('/api/v1/documents', {
+          headers: { 'X-User-Role': userRoleSelect.value }
+        });
+        if (!res.ok) {
+          docsList.innerHTML = `<div class="text-rose-400">Failed to fetch documents</div>`;
+          return;
+        }
+        const docs = await res.json();
+        if (docs.length === 0) {
+          docsList.innerHTML = '<div class="text-slate-500 italic">No accessible documents found for this role.</div>';
+          return;
+        }
+        docsList.innerHTML = docs.map(d => `
+          <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80 flex flex-col gap-1">
+            <div class="flex items-center justify-between">
+              <span class="font-medium text-slate-200 truncate">${d.filename}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 font-mono">${d.classification}</span>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+              <span>ACL: [${d.allowed_roles.join(', ')}]</span>
+              <span>${d.id.slice(0, 8)}...</span>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        docsList.innerHTML = `<div class="text-rose-400">${err.message}</div>`;
+      }
+    }
+
+    // Submit Query
+    queryForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const question = questionInput.value.trim();
+      if (!question) return;
+
+      // Append user bubble
+      appendMessage('user', question);
+      questionInput.value = '';
+
+      // Append placeholder
+      const botMsgId = appendMessage('bot', 'Analyzing authorized vectors...');
+
+      try {
+        const res = await fetch('/api/v1/analyze', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-ID': userIdInput.value,
+            'X-User-Role': userRoleSelect.value
+          },
+          body: JSON.stringify({ question })
+        });
+        const data = await res.json();
+        updateBotMessage(botMsgId, data);
+        loadAuditLogs();
+      } catch (err) {
+        document.getElementById(botMsgId).innerText = `Error: ${err.message}`;
+      }
+    });
+
+    function appendMessage(sender, text) {
+      const id = 'msg_' + Date.now();
+      const div = document.createElement('div');
+      div.className = sender === 'user' 
+        ? 'flex justify-end' 
+        : 'flex justify-start';
+
+      div.innerHTML = sender === 'user' 
+        ? `<div class="bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-xl text-xs">${text}</div>`
+        : `<div id="${id}" class="bg-slate-900 border border-slate-800 text-slate-200 rounded-2xl rounded-tl-sm p-4 max-w-2xl text-xs space-y-2">${text}</div>`;
+
+      chatHistory.appendChild(div);
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+      return id;
+    }
+
+    function updateBotMessage(msgId, data) {
+      const container = document.getElementById(msgId);
+      if (!container) return;
+
+      let citationsHtml = '';
+      if (data.citations && data.citations.length > 0) {
+        citationsHtml = `
+          <div class="mt-3 pt-3 border-t border-slate-800">
+            <span class="text-[10px] text-slate-400 font-semibold tracking-wider uppercase block mb-1.5">Attributed Source Chunks</span>
+            <div class="space-y-1.5">
+              ${data.citations.map(c => `
+                <div class="p-2 rounded bg-slate-950 border border-slate-800 text-[11px]">
+                  <div class="flex items-center justify-between text-indigo-400 font-mono text-[10px] mb-1">
+                    <span>ID: [${c.id}]</span>
+                    <span>Page ${c.page || 1}</span>
+                  </div>
+                  <p class="text-slate-300 font-serif leading-relaxed">"${c.content}"</p>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      container.innerHTML = `
+        <div class="flex items-center justify-between pb-1">
+          <span class="text-[10px] font-mono text-slate-400">Request: ${data.request_id ? data.request_id.slice(0, 8) : 'N/A'}</span>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded ${data.is_grounded ? 'bg-emerald-950 text-emerald-400' : 'bg-amber-950 text-amber-400'}">
+            ${data.is_grounded ? '✓ Grounded' : '⚠ Ungrounded'}
+          </span>
+        </div>
+        <p class="leading-relaxed text-slate-100">${data.answer}</p>
+        ${citationsHtml}
+      `;
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    // Load Audit Logs
+    async function loadAuditLogs() {
+      try {
+        const res = await fetch('/api/v1/audit/logs?limit=5', {
+          headers: { 'X-User-Role': userRoleSelect.value }
+        });
+        if (res.status === 403) {
+          auditLogsContainer.innerHTML = '<span class="text-amber-500">Access Denied: Role must be "auditor" or "admin" to inspect logs.</span>';
+          return;
+        }
+        const logs = await res.json();
+        if (logs.length === 0) {
+          auditLogsContainer.innerHTML = '<span class="text-slate-500">No logs found.</span>';
+          return;
+        }
+        auditLogsContainer.innerHTML = `
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400 text-[10px]">
+                <th class="py-1">Timestamp</th>
+                <th>User / Role</th>
+                <th>Query</th>
+                <th>Chunks Cited</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/40 text-[11px]">
+              ${logs.map(l => `
+                <tr>
+                  <td class="py-1.5 text-slate-500">${l.timestamp.split('T')[1].slice(0, 8)}</td>
+                  <td class="text-indigo-300 font-mono">${l.user_id} (${l.user_role})</td>
+                  <td class="text-slate-200 truncate max-w-xs">${l.query}</td>
+                  <td class="text-slate-400 font-mono">${l.accessed_chunk_ids.length ? '[' + l.accessed_chunk_ids.join(', ') + ']' : '[]'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        auditLogsContainer.innerHTML = `<span class="text-rose-400">${err.message}</span>`;
+      }
+    }
+
+    // React to Role Selector changes
+    userRoleSelect.addEventListener('change', () => {
+      loadDocuments();
+      loadAuditLogs();
+    });
+
+    document.getElementById('refreshDocsBtn').addEventListener('click', loadDocuments);
+    document.getElementById('refreshAuditBtn').addEventListener('click', loadAuditLogs);
+
+    // Initial load
+    loadDocuments();
+    loadAuditLogs();
+  </script>
+</body>
+</html>
